@@ -196,7 +196,7 @@ class SearchParser:
         self.price_list = [ price for _, price in rows ]
         return self.price_list
 
-    def stop( self ):
+    def stop( self ) -> None:
         self.context.close()
         self.browser.close()
         self.playwright.stop()
@@ -221,7 +221,41 @@ class ProductParser:
             timeout = 30000
         )
 
-    def stop( self ):
+        self.area = self.page.locator( ".ux-layout-section-evo__item--description-list" )
+
+        self._ensure_expected_page( product_url )
+
+    def _ensure_expected_page( self, expected_url: str ) -> None:
+            wait_for_expected_page(
+                probe = lambda: ( self.page.url, self.page.title() or "" ),
+                reload_page = lambda url: self.page.goto(
+                    url,
+                    wait_until = "domcontentloaded",
+                    timeout = 30000
+                ),
+                expected_url = expected_url,
+                keywords = self.keywords,
+                max_attempts = 3,
+                retry_delay_seconds = 3.0,
+            )
+
+    def parse_details_labels( self ):
+        details_labels = []
+        for label_element in self.area.locator( ".ux-labels-values__labels" ).all():
+            label_text = label_element.inner_text()
+            details_labels.append( label_text )
+
+        return details_labels
+
+    def parse_details_values( self ):
+        details_values = []
+        for value_element in self.area.locator( ".ux-labels-values__values" ).all():
+            value_text = value_element.inner_text()
+            details_values.append( value_text )
+
+        return details_values
+
+    def stop( self ) -> None:
         self.context.close()
         self.browser.close()
         self.playwright.stop()
