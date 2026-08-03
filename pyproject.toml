@@ -1,0 +1,21 @@
+[project]
+name = "just-analyse-this-ebay"
+version = "0.1.0"
+description = "A simple eBay analysis tool with ML models"
+readme = "README.md"
+authors = [
+    { name = "NeteRVezeR", email = "netervezer@proton.me" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=3.0.5",
+    "playwright>=1.62.0",
+    "pytest-playwright>=0.8.0",
+]
+
+[project.scripts]
+just-analyse-this-ebay = "just_analyse_this_ebay.main:main"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
