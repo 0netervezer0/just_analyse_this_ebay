@@ -7,6 +7,15 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - exercised in environments without Playwright
     sync_playwright = None
 
+BLOCKED_PAGE_MARKERS = (
+    "browser check",
+    "verify you are human",
+    "verify you're a human",
+    "security check",
+    "request blocked",
+)
+
+
 def is_expected_search_page( url: str, keywords: str, page_title: str | None = None ) -> bool:
     parsed_url = urlparse( url )
 
@@ -24,15 +33,26 @@ def is_expected_search_page( url: str, keywords: str, page_title: str | None = N
 
     if page_title is not None:
         title = page_title.lower()
-        blocked_markers = (
-            "browser check",
-            "verify you are human",
-            "verify you're a human",
-            "security check",
-            "request blocked",
-        )
 
-        if any( marker in title for marker in blocked_markers ):
+        if any( marker in title for marker in BLOCKED_PAGE_MARKERS ):
+            return False
+
+    return True
+
+
+def is_expected_product_page( url: str, page_title: str | None = None ) -> bool:
+    parsed_url = urlparse( url )
+
+    if parsed_url.netloc not in { "www.ebay.com", "ebay.com" }:
+        return False
+
+    if not parsed_url.path.startswith( "/itm/" ):
+        return False
+
+    if page_title is not None:
+        title = page_title.lower()
+
+        if any( marker in title for marker in BLOCKED_PAGE_MARKERS ):
             return False
 
     return True
@@ -44,19 +64,22 @@ def wait_for_expected_page(
     expected_url: str,
     keywords: str,
     *,
+    page_validator: Callable[[str, str | None], bool] | None = None,
+    page_description: str = "search page",
     max_attempts: int = 3,
     retry_delay_seconds: float = 3.0,
 ) -> None:
     last_error: RuntimeError | None = None
+    validator = page_validator or ( lambda url, page_title: is_expected_search_page( url, keywords, page_title ) )
 
     for attempt in range( max_attempts ):
         current_url, page_title = probe()
 
-        if is_expected_search_page( current_url, keywords, page_title ):
+        if validator( current_url, page_title ):
             return
 
         last_error = RuntimeError(
-            "Failed to open ebay search page for "
+            f"Failed to open ebay { page_description } for "
             f"'{ keywords }', but got '{ current_url }'"
             f" (title: { page_title })"
         )
@@ -221,9 +244,27 @@ class ProductParser:
             timeout = 30000
         )
 
+        self._ensure_expected_page( self.product_url )
+
         self.specifics_area   = self.page.locator( ".ux-layout-section-evo__item--description-list" )
         self.seller_area      = self.page.locator( ".x-store-information__header" )
         self.description_area = self.page.locator( ".d-item-description" )
+
+    def _ensure_expected_page( self, expected_url: str ) -> None:
+        wait_for_expected_page(
+            probe = lambda: ( self.page.url, self.page.title() or "" ),
+            reload_page = lambda url: self.page.goto(
+                url,
+                wait_until = "domcontentloaded",
+                timeout = 30000
+            ),
+            expected_url = expected_url,
+            keywords = "",
+            page_validator = lambda url, page_title: is_expected_product_page( url, page_title ),
+            page_description = "product page",
+            max_attempts = 3,
+            retry_delay_seconds = 3.0,
+        )
 
     def parse_specifics_labels( self ):
         specifics_labels = []
@@ -242,9 +283,13 @@ class ProductParser:
         return specifics_values
 
     def parse_description( self ):
-        description = self.description_area.locator( ".x-item-description-child" )
+        iframe = self.page.locator( "#desc_ifr" )
+        iframe.wait_for( timeout = 10000 )
 
-        return description.inner_text() if description else ""
+        frame = iframe.content_frame
+        frame.locator( "body" ).wait_for( timeout = 10000 )
+
+        return frame.locator( "body" ).inner_text()
 
     def parse_seller_name( self ):
         seller_name = self.seller_area.locator( ".ux-textspans--BOLD" )

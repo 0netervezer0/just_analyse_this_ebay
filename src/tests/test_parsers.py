@@ -1,4 +1,11 @@
-from just_analyse_this_ebay.parsers import is_expected_search_page, parse_result_rows, wait_for_expected_page
+import pytest
+
+from just_analyse_this_ebay.parsers import (
+    is_expected_product_page,
+    is_expected_search_page,
+    parse_result_rows,
+    wait_for_expected_page,
+)
 
 
 def test_accepts_matching_ebay_search_url():
@@ -23,6 +30,20 @@ def test_rejects_browser_check_page():
     assert not is_expected_search_page(
         "https://www.ebay.com/sch/i.html?_nkw=iphone",
         "iphone",
+        "Browser Check",
+    )
+
+
+def test_accepts_matching_ebay_product_page():
+    assert is_expected_product_page(
+        "https://www.ebay.com/itm/iphone-case/123456789",
+        "iPhone Case",
+    )
+
+
+def test_rejects_browser_check_page_for_product_pages():
+    assert not is_expected_product_page(
+        "https://www.ebay.com/itm/iphone-case/123456789",
         "Browser Check",
     )
 
@@ -121,3 +142,27 @@ def test_wait_for_expected_page_retries_and_succeeds():
 
     assert attempts["count"] == 3
     assert reloaded["count"] == 2
+
+
+def test_wait_for_expected_page_reports_page_type_in_error_message():
+    def probe():
+        return "https://www.ebay.com/itm/iphone-case/123456789", "Browser Check"
+
+    def reload_page( url ):
+        return None
+
+    with pytest.raises( RuntimeError ) as exc_info:
+        wait_for_expected_page(
+            probe = probe,
+            reload_page = reload_page,
+            expected_url = "https://www.ebay.com/itm/iphone-case/123456789",
+            keywords = "",
+            page_validator = lambda url, page_title: is_expected_product_page( url, page_title ),
+            page_description = "product page",
+            max_attempts = 1,
+            retry_delay_seconds = 0.0,
+        )
+
+    message = str( exc_info.value )
+    assert "product page" in message
+    assert "search page" not in message

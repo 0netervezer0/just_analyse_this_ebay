@@ -23,15 +23,10 @@ def main():
 
     p_parser = ProductParser( url )
 
-    details_labels = p_parser.parse_details_labels()
-    details_values = p_parser.parse_details_values()
+    description = p_parser.parse_description()
     p_parser.stop()
 
-    df = pd.DataFrame( {
-            "Label": details_labels,
-            "Value": details_values
-        } )
-    df.to_csv( "output/product_details.csv", index = False )
+    print( f"Description: { description }" )
 
 if __name__ == "__main__":
     main()
