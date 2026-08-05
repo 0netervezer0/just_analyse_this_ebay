@@ -221,39 +221,35 @@ class ProductParser:
             timeout = 30000
         )
 
-        self.area = self.page.locator( ".ux-layout-section-evo__item--description-list" )
+        self.specifics_area   = self.page.locator( ".ux-layout-section-evo__item--description-list" )
+        self.seller_area      = self.page.locator( ".x-store-information__header" )
+        self.description_area = self.page.locator( ".d-item-description" )
 
-        self._ensure_expected_page( product_url )
-
-    def _ensure_expected_page( self, expected_url: str ) -> None:
-            wait_for_expected_page(
-                probe = lambda: ( self.page.url, self.page.title() or "" ),
-                reload_page = lambda url: self.page.goto(
-                    url,
-                    wait_until = "domcontentloaded",
-                    timeout = 30000
-                ),
-                expected_url = expected_url,
-                keywords = self.keywords,
-                max_attempts = 3,
-                retry_delay_seconds = 3.0,
-            )
-
-    def parse_details_labels( self ):
-        details_labels = []
-        for label_element in self.area.locator( ".ux-labels-values__labels" ).all():
+    def parse_specifics_labels( self ):
+        specifics_labels = []
+        for label_element in self.specifics_area.locator( ".ux-labels-values__labels" ).all():
             label_text = label_element.inner_text()
-            details_labels.append( label_text )
+            specifics_labels.append( label_text )
 
-        return details_labels
+        return specifics_labels
 
-    def parse_details_values( self ):
-        details_values = []
-        for value_element in self.area.locator( ".ux-labels-values__values" ).all():
+    def parse_specifics_values( self ):
+        specifics_values = []
+        for value_element in self.specifics_area.locator( ".ux-labels-values__values" ).all():
             value_text = value_element.inner_text()
-            details_values.append( value_text )
+            specifics_values.append( value_text )
 
-        return details_values
+        return specifics_values
+
+    def parse_description( self ):
+        description = self.description_area.locator( ".x-item-description-child" )
+
+        return description.inner_text() if description else ""
+
+    def parse_seller_name( self ):
+        seller_name = self.seller_area.locator( ".ux-textspans--BOLD" )
+
+        return seller_name.inner_text() if seller_name else ""
 
     def stop( self ) -> None:
         self.context.close()
